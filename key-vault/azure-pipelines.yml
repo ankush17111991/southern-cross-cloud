@@ -1,0 +1,78 @@
+trigger:
+  branches:
+    include:
+    - main
+    - feature/*
+pool:
+  name: Default
+  demands:
+  - Agent.Name -equals prabhatagent
+
+stages:
+  - stage: FMTValidate
+    jobs:
+      - job: Validate
+        displayName: FmtValidate 
+        steps:
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/prod'
+            backendServiceArm: 'azure-rm-sc'
+            backendAzureRmStorageAccountName: 'prabhattestingsg12'
+            backendAzureRmContainerName: 'tfstate'
+            backendAzureRmKey: 'prod.terraform.tfstate'        
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'validate'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/prod'
+
+  - stage: Plan 
+    jobs:
+      - job: TerraformPlan
+        displayName: TerraformPlan 
+        steps:
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/prod'
+            backendServiceArm: 'azure-rm-sc'
+            backendAzureRmStorageAccountName: 'prabhattestingsg12'
+            backendAzureRmContainerName: 'tfstate'
+            backendAzureRmKey: 'prod.terraform.tfstate'
+
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/prod'
+            environmentServiceNameAzureRM: 'azure-rm-sc'
+
+
+  - stage: TfApply
+    dependsOn: plan
+    condition: and(succeeded(),eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: TFApply
+        displayName: Terraform Apply
+        
+        steps:
+
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/prod'
+            backendServiceArm: 'azure-rm-sc'
+            backendAzureRmStorageAccountName: 'prabhattestingsg12'
+            backendAzureRmContainerName: 'tfstate'
+            backendAzureRmKey: 'prod.terraform.tfstate'
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'apply'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environment/prod'
+            environmentServiceNameAzureRM: 'azure-rm-sc'
